@@ -1,0 +1,11 @@
+# 正式 EPUB 與歸檔只放 GitHub Release assets
+*.epub
+*.zip
+# 建置輸出
+/build/
+__pycache__/
+*.pyc
+# 作業系統檔案
+.DS_Store
+Thumbs.db
+desktop.ini
