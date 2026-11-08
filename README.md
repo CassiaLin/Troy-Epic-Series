@@ -7,18 +7,20 @@
 
 電子書（EPUB）把兩者合為一冊：第一部是中文好讀版，第二部是原文逐行對照。
 
+合訂本檔案較大，GitHub 網頁無法直接顯示；要在網頁上閱讀，請用各冊的「分卷」，內容與合訂本逐字相同。
+
 ## 各冊（v2.0.0）
 
-| 冊 | 作品 | 原文 | 中文好讀版 | 原文逐行對照 | 電子書 |
-|---|---|---|---|---|---|
-| 01 | 荷馬《伊里亞德》 | 希臘文 | [好讀版](01_伊里亞德/好讀版.md) | [雙語校對版](01_伊里亞德/雙語校對版.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/01-iliad-v2.0.0/TroyEpic_01_Iliad_zh-TW_v2.0.0.epub) |
-| 02 | 士麥那的昆圖斯《荷馬續篇》 | 希臘文 | [好讀版](02_荷馬續篇/好讀版.md) | [雙語校對版](02_荷馬續篇/雙語校對版.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/02-posthomerica-v2.0.0/TroyEpic_02_Posthomerica_zh-TW_v2.0.0.epub) |
-| 03 | 荷馬《奧德賽》 | 希臘文 | [好讀版](03_奧德賽/好讀版.md) | [雙語校對版](03_奧德賽/雙語校對版.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/03-odyssey-v2.0.0/TroyEpic_03_Odyssey_zh-TW_v2.0.0.epub) |
-| 04 | 維吉爾《埃涅阿斯紀》 | 拉丁文 | [好讀版](04_埃涅阿斯紀/好讀版.md) | [雙語校對版](04_埃涅阿斯紀/雙語校對版.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/04-aeneid-v2.0.0/TroyEpic_04_Aeneid_zh-TW_v2.0.0.epub) |
-| 05 | 《史詩殘篇集》（史詩集成六部殘篇） | 希臘文 | [好讀版](05_史詩殘篇集/好讀版.md) | [雙語校對版](05_史詩殘篇集/雙語校對版.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/05-epic-cycle-v2.0.0/TroyEpic_05_Epic_Cycle_zh-TW_v2.0.0.epub) |
+| 冊 | 作品 | 原文 | 中文好讀版 | 原文逐行對照 | 分卷閱讀 | 電子書 |
+|---|---|---|---|---|---|---|
+| 01 | 荷馬《伊里亞德》 | 希臘文 | [好讀版](01_伊里亞德/好讀版.md) | [雙語校對版](01_伊里亞德/雙語校對版.md) | [分卷](01_伊里亞德/分卷/README.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/01-iliad-v2.0.0/TroyEpic_01_Iliad_zh-TW_v2.0.0.epub) |
+| 02 | 士麥那的昆圖斯《荷馬續篇》 | 希臘文 | [好讀版](02_荷馬續篇/好讀版.md) | [雙語校對版](02_荷馬續篇/雙語校對版.md) | [分卷](02_荷馬續篇/分卷/README.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/02-posthomerica-v2.0.0/TroyEpic_02_Posthomerica_zh-TW_v2.0.0.epub) |
+| 03 | 荷馬《奧德賽》 | 希臘文 | [好讀版](03_奧德賽/好讀版.md) | [雙語校對版](03_奧德賽/雙語校對版.md) | [分卷](03_奧德賽/分卷/README.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/03-odyssey-v2.0.0/TroyEpic_03_Odyssey_zh-TW_v2.0.0.epub) |
+| 04 | 維吉爾《埃涅阿斯紀》 | 拉丁文 | [好讀版](04_埃涅阿斯紀/好讀版.md) | [雙語校對版](04_埃涅阿斯紀/雙語校對版.md) | [分卷](04_埃涅阿斯紀/分卷/README.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/04-aeneid-v2.0.0/TroyEpic_04_Aeneid_zh-TW_v2.0.0.epub) |
+| 05 | 《史詩殘篇集》（史詩集成六部殘篇） | 希臘文 | [好讀版](05_史詩殘篇集/好讀版.md) | [雙語校對版](05_史詩殘篇集/雙語校對版.md) | [分卷](05_史詩殘篇集/分卷/README.md) | [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/05-epic-cycle-v2.0.0/TroyEpic_05_Epic_Cycle_zh-TW_v2.0.0.epub) |
 
 **附錄參考書（90 冊）：** 塞繆爾．巴特勒《奧德賽的女作者》（1897）全譯，主張《奧德賽》出自西西里一位年輕女性之手的假說性著作，作為《奧德賽》接受史的參考。
-- [中文好讀版（附英文原文與 21 幅原書圖版）](90_奧德賽的女作者/中文好讀版_附原文.md)
+- [中文好讀版（附英文原文與 21 幅原書圖版）](90_奧德賽的女作者/中文好讀版_附原文.md)；[分章閱讀](90_奧德賽的女作者/分章/README.md)
 - [EPUB](https://github.com/CassiaLin/Troy-Epic-Series/releases/download/90-odyssey-authoress-v2.0.0/TroyEpic_90_Odyssey_Authoress_zh-TW_v2.0.0.epub)
 
 ## 授權（分層）
@@ -41,8 +43,8 @@
 
 ## 目錄結構
 
-- `01_伊里亞德/` … `05_史詩殘篇集/`：各冊 `好讀版.md`、`雙語校對版.md`。
-- `90_奧德賽的女作者/`：中文好讀版附英文原文、逐段對照工作檔、原書圖版。
+- `01_伊里亞德/` … `05_史詩殘篇集/`：各冊 `好讀版.md`、`雙語校對版.md`（合訂本），以及 `分卷/`（依卷拆開，供網頁閱讀）。
+- `90_奧德賽的女作者/`：中文好讀版附英文原文、逐段對照工作檔、原書圖版，以及 `分章/`（依章拆開）。
 - `covers/`：各冊封面原圖（PNG）。
 - `docs/`：翻譯規則、統一譯名總表、固定修飾語對照表、成書規範、版本規則、譯名決策紀錄。
 - `tools/`：EPUB 建置與檢查工具，說明見 [tools/README.md](tools/README.md)。
