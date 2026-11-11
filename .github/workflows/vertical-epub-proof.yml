@@ -1,4 +1,4 @@
-name: TES vertical EPUB proof
+name: TES full-series mixed-layout EPUB proofs
 
 on:
   pull_request:
@@ -12,6 +12,35 @@ permissions:
 
 jobs:
   proof:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - volume: '01'
+            book: Iliad
+            tag: 01-iliad-v2.0.0
+            sha256: 453c53c4b2d02f9346a7c1c307933cbad06a473346be674e4c61b5e953bea5b0
+          - volume: '02'
+            book: Posthomerica
+            tag: 02-posthomerica-v2.0.0
+            sha256: b481fb497b463af7df058ada98c31ef3f3bf67e7dfdbad370e30355da153b6a9
+          - volume: '03'
+            book: Odyssey
+            tag: 03-odyssey-v2.0.0
+            sha256: dfa4e5c1d99da1a1737eee85774f7693293f9cec30883a6014f563a125e910e2
+          - volume: '04'
+            book: Aeneid
+            tag: 04-aeneid-v2.0.0
+            sha256: 1e4532cae76d79566ba4eb69016d9ae3965385f5f30f9469e2270c1eeb287f2c
+          - volume: '05'
+            book: Epic_Cycle
+            tag: 05-epic-cycle-v2.0.0
+            sha256: 8470f80a39e65ccd8eb65ffab79ede3cd0ff979fce440a160d2a64f68494918c
+          - volume: '90'
+            book: Odyssey_Authoress
+            tag: 90-odyssey-authoress-v2.0.0
+            sha256: 7ccd21fb2e304a8a97db9f48702a7505655133242327a1fa484e6d697bcfa891
+    name: Volume ${{ matrix.volume }} · mixed vertical EPUB
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,37 +48,58 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Download original Iliad release
+      - name: Download exact original release and verify SHA256
+        env:
+          VOLUME: ${{ matrix.volume }}
+          BOOK: ${{ matrix.book }}
+          TAG: ${{ matrix.tag }}
+          SHA: ${{ matrix.sha256 }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build
-          curl -fL --retry 3 --silent --show-error -o build/source.epub "https://github.com/CassiaLin/Troy-Epic-Series/releases/download/01-iliad-v2.0.0/TroyEpic_01_Iliad_zh-TW_v2.0.0.epub"
-          echo "453c53c4b2d02f9346a7c1c307933cbad06a473346be674e4c61b5e953bea5b0  build/source.epub" | sha256sum -c -
-      - name: Make separate vertical proof
-        run: python tools/verticalize_existing_epub.py build/source.epub build/TroyEpic_01_Iliad_zh-TW_v2.0.0_vertical-proof-v6.epub
+          curl -fL --retry 3 --silent --show-error \
+            -o build/source.epub \
+            "https://github.com/CassiaLin/Troy-Epic-Series/releases/download/${TAG}/TroyEpic_${VOLUME}_${BOOK}_zh-TW_v2.0.0.epub"
+          echo "${SHA}  build/source.epub" | sha256sum -c -
+      - name: Convert and check unchanged bilingual, images and XHTML links
+        env:
+          VOLUME: ${{ matrix.volume }}
+          BOOK: ${{ matrix.book }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile tools/verticalize_existing_epub.py
+          python tools/verticalize_existing_epub.py build/source.epub \
+            "build/TroyEpic_${VOLUME}_${BOOK}_zh-TW_v2.0.0_vertical-proof-v7.epub" \
+            --volume "${VOLUME}" | tee build/integrity-report.txt
       - name: Download EPUBCheck 5.3.0
         shell: bash
         run: |
           set -euo pipefail
-          curl -fL --retry 3 --silent --show-error -o build/epubcheck.zip "https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip"
+          curl -fL --retry 3 --silent --show-error -o build/epubcheck.zip \
+            "https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip"
           unzip -q build/epubcheck.zip -d build/checker
-      - name: EPUBCheck (errors or warnings fail)
+      - name: EPUBCheck — zero errors and warnings required
+        env:
+          VOLUME: ${{ matrix.volume }}
+          BOOK: ${{ matrix.book }}
         shell: bash
         run: |
           set -euo pipefail
-          java -jar build/checker/epubcheck-5.3.0/epubcheck.jar build/TroyEpic_01_Iliad_zh-TW_v2.0.0_vertical-proof-v6.epub 2>&1 | tee build/epubcheck-report.txt
-          if grep -Eiq '(warning|error|fatal): [1-9]|(WARN|ERROR|FATAL)\(' build/epubcheck-report.txt; then
-            echo "EPUBCheck reported issues"
-            exit 1
-          fi
-      - name: Upload testing files (not a Release)
+          java -jar build/checker/epubcheck-5.3.0/epubcheck.jar \
+            "build/TroyEpic_${VOLUME}_${BOOK}_zh-TW_v2.0.0_vertical-proof-v7.epub" \
+            2>&1 | tee build/epubcheck-report.txt
+          grep -q 'No errors or warnings detected' build/epubcheck-report.txt
+          grep -q 'Messages: 0 fatals / 0 errors / 0 warnings / 0 infos' build/epubcheck-report.txt
+      - name: Upload proof files, never publish Releases
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TES-Iliad-vertical-proof-v6
+          name: TES-${{ matrix.volume }}-vertical-proof-v7
           path: |
-            build/TroyEpic_01_Iliad_zh-TW_v2.0.0_vertical-proof-v6.epub
+            build/*vertical-proof-v7.epub
+            build/integrity-report.txt
             build/epubcheck-report.txt
           if-no-files-found: warn
           retention-days: 30
