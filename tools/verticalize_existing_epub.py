@@ -72,6 +72,13 @@ def transform(source, dest):
                 if id_count != 1 or title_count != 1:
                     raise ValueError("Unexpected OPF metadata")
                 data = x.encode("utf-8")
+            elif item.filename == "OEBPS/toc.ncx":
+                x = data.decode("utf-8")
+                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v2/01"))
+                x, ncx_count = re.subn(r'(<meta name="dtb:uid" content=")[^"]+("/>)', lambda m: m.group(1) + replacement_id + m.group(2), x, count=1)
+                if ncx_count != 1:
+                    raise ValueError("Unexpected NCX identifier")
+                data = x.encode("utf-8")
             elif item.filename == "OEBPS/css/book.css":
                 data += ("\n" + STYLE).encode("utf-8")
             elif bilingual.fullmatch(item.filename):
@@ -82,7 +89,7 @@ def transform(source, dest):
             raise ValueError("ZIP file list changed")
         for name in original.namelist():
             before, after = original.read(name), converted.read(name)
-            if readable.fullmatch(name) or name in ("OEBPS/css/book.css", "OEBPS/content.opf"):
+            if readable.fullmatch(name) or name in ("OEBPS/css/book.css", "OEBPS/content.opf", "OEBPS/toc.ncx"):
                 continue
             if before != after:
                 raise ValueError("Unexpected change: " + name)
