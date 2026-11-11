@@ -6,6 +6,8 @@ import pathlib
 import re
 import uuid
 import zipfile
+import xml.etree.ElementTree as ET
+from collections import Counter
 
 STYLE = """
 /* Chinese reading portions vertical; bilingual and cover stay horizontal. */
@@ -43,7 +45,10 @@ body.tes-vertical-readable nav ol { padding-left: 0; padding-right: 1.2em; }
 body.tes-vertical-readable .titlepage { margin-top: 0; margin-right: 18%; }
 body.tes-vertical-readable .part { margin-top: 0; margin-right: 25%; }
 body.tes-vertical-readable .meta { border-left: 0; border-right: 2px solid; padding-left: 0; padding-right: 0.8em; }
-body.tes-vertical-readable img { max-width: 100%; max-height: 90%; }
+body.tes-vertical-readable img { max-width: 90vw; max-height: 85vh; width: auto; height: auto; object-fit: contain; }
+body.tes-vertical-readable figure { writing-mode: horizontal-tb; text-align: center; max-width: 90vw; break-inside: avoid; }
+body.tes-vertical-readable figure img { max-width: 90vw; max-height: 82vh; width: auto; height: auto; object-fit: contain; }
+body.tes-vertical-readable figcaption { text-align: center; }
 html:not(.tes-vertical-readable), body:not(.tes-vertical-readable) { writing-mode: horizontal-tb; }
 """
 
@@ -87,11 +92,28 @@ def verticalize_tables(x):
 def sha(data):
     return hashlib.sha256(data).hexdigest()
 
-def transform(source, dest):
+def image_references(x):
+    root = ET.fromstring(x)
+    return Counter(node.attrib.get("src", "") for node in root.iter() if node.tag.rsplit("}", 1)[-1] == "img")
+
+def xml_text(x):
+    return "".join(ET.fromstring(x).itertext())
+
+def transform(source, dest, vol=None):
     readable = re.compile(r"OEBPS/(?:r|z)[0-9]{2}\.xhtml$")
     front = re.compile(r"OEBPS/f[0-9]{2}\.xhtml$")
     appendix = re.compile(r"OEBPS/a[a-z]\.xhtml$")
     vertical_named = {"OEBPS/titlepage.xhtml", "OEBPS/nav.xhtml", "OEBPS/p1.xhtml", "OEBPS/p3.xhtml"}
+    if vol is None:
+        match = re.search(r"TroyEpic_(\\d{2})_", source.name)
+        if not match:
+            raise ValueError("Specify --volume for unknown source filename")
+        vol = match.group(1)
+    if vol not in ("01", "02", "03", "04", "05", "90"):
+        raise ValueError("Unknown volume: " + vol)
+    is_90 = vol == "90"
+    if is_90:
+        vertical_named.discard("OEBPS/p3.xhtml")
     def vertical(name):
         return bool(readable.fullmatch(name) or front.fullmatch(name) or appendix.fullmatch(name) or name in vertical_named)
     bilingual = re.compile(r"OEBPS/(?:c|e)[0-9]{2}\.xhtml$")
@@ -99,6 +121,7 @@ def transform(source, dest):
     bilingual_count = 0
     modified_sections = []
     table_count = 0
+    original_images = []
     with zipfile.ZipFile(source) as inp, zipfile.ZipFile(dest, "w") as out:
         names = inp.namelist()
         if not names or names[0] != "mimetype":
@@ -126,9 +149,9 @@ def transform(source, dest):
                 modified_sections.append(item.filename)
             elif item.filename == "OEBPS/content.opf":
                 x = data.decode("utf-8")
-                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v6/01"))
+                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, f"https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-series-v7/{vol}"))
                 x, id_count = re.subn(r"(<dc:identifier id=\"pub-id\">)[^<]+(</dc:identifier>)", lambda m: m.group(1) + replacement_id + m.group(2), x, count=1)
-                x, title_count = re.subn(r"(<dc:title id=\"t1\">)([^<]+)(</dc:title>)", lambda m: m.group(1) + m.group(2) + "（直排測試六版）" + m.group(3), x, count=1)
+                x, title_count = re.subn(r"(<dc:title id=\"t1\">)([^<]+)(</dc:title>)", lambda m: m.group(1) + m.group(2) + "（直排測試版）" + m.group(3), x, count=1)
                 if id_count != 1 or title_count != 1:
                     raise ValueError("Unexpected OPF metadata")
                 x, spine_count = re.subn(r"<spine(?=[ >])([^>]*)>", lambda m: '<spine' + re.sub(r'\\s+page-progression-direction="[^"]*"', '', m.group(1)) + ' page-progression-direction="rtl">', x, count=1)
@@ -137,7 +160,7 @@ def transform(source, dest):
                 data = x.encode("utf-8")
             elif item.filename == "OEBPS/toc.ncx":
                 x = data.decode("utf-8")
-                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v6/01"))
+                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, f"https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-series-v7/{vol}"))
                 x, ncx_count = re.subn(r'(<meta name="dtb:uid" content=")[^"]+("/>)', lambda m: m.group(1) + replacement_id + m.group(2), x, count=1)
                 if ncx_count != 1:
                     raise ValueError("Unexpected NCX identifier")
@@ -157,18 +180,36 @@ def transform(source, dest):
             if before != after:
                 raise ValueError("Unexpected change: " + name)
         for name in original.namelist():
+            if name.startswith("OEBPS/images/") or re.search(r"\\.(?:png|jpe?g|svg|gif|webp)$", name, re.I):
+                original_images.append(name)
+                if original.read(name) != converted.read(name):
+                    raise ValueError("Image bytes changed: " + name)
+        for name in original.namelist():
+            if vertical(name) and name.endswith(".xhtml"):
+                old, new = original.read(name).decode("utf-8"), converted.read(name).decode("utf-8")
+                if image_references(old) != image_references(new):
+                    raise ValueError("Image references changed: " + name)
+                if "<table" not in old and xml_text(old) != xml_text(new):
+                    raise ValueError("Text changed in XHTML: " + name)
+        for name in original.namelist():
             if bilingual.fullmatch(name) and sha(original.read(name)) != sha(converted.read(name)):
                 raise ValueError("Bilingual chapter changed: " + name)
     expected_front = sorted(n for n in names if front.fullmatch(n))
     expected_appendix = sorted(n for n in names if appendix.fullmatch(n))
     required = set(expected_front + expected_appendix + [n for n in vertical_named if n in names])
-    if not expected_front or not expected_appendix:
-        raise ValueError("Source EPUB lacks front matter or appendices")
+    if not expected_front or (not is_90 and not expected_appendix):
+        raise ValueError("Source EPUB lacks expected front matter or appendices")
+    if is_90:
+        if not any(n.endswith("cover-epub.jpg") for n in original_images) or len(original_images) < 22:
+            raise ValueError("Volume 90 missing expected cover and 21 image files")
+        if not any(readable.fullmatch(n) for n in modified_sections):
+            raise ValueError("Volume 90 Chinese chapters not converted")
     if count == 0 or bilingual_count == 0 or not required.issubset(set(modified_sections)):
         raise ValueError("Missing vertical sections: " + str(sorted(required - set(modified_sections))))
     if table_count == 0:
-        raise ValueError("Expected at least one vertical-table conversion")
+        print("No tables needed conversion")
     print(f"Converted tables to vertical records: {table_count}")
+    print(f"Images preserved byte-for-byte: {len(original_images)}")
     print(f"Front matter vertical: {len(expected_front)}; appendices vertical: {len(expected_appendix)}")
     print(f"Vertical XHTML files: {count}; sections: {modified_sections}")
     print(f"Bilingual chapters preserved byte-for-byte: {bilingual_count}")
@@ -178,6 +219,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=pathlib.Path)
     parser.add_argument("destination", type=pathlib.Path)
+    parser.add_argument("--volume", choices=["01","02","03","04","05","90"])
     args = parser.parse_args()
     args.destination.parent.mkdir(parents=True, exist_ok=True)
-    transform(args.source, args.destination)
+    transform(args.source, args.destination, args.volume)
