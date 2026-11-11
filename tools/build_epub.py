@@ -293,7 +293,7 @@ class Book:
 
     def write(self, out):
         c = self.c
-        uid = uuid.uuid5(uuid.NAMESPACE_URL, f'https://github.com/CassiaLin/Troy-Epic-Series/{VER}/{self.v}/{"vertical-readable" if VERTICAL_READABLE else "standard"}')
+        uid = uuid.uuid5(uuid.NAMESPACE_URL, (f'https://github.com/CassiaLin/Troy-Epic-Series/{VER}/{self.v}/vertical-readable' if VERTICAL_READABLE else f'https://github.com/CassiaLin/Troy-Epic-Series/{VER}/{self.v}'))
         man, spine = [], []
         man.append('<item id="css" href="css/book.css" media-type="text/css"/>')
         man.append('<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>')
