@@ -1,0 +1,55 @@
+name: TES vertical EPUB proof
+
+on:
+  pull_request:
+    paths:
+      - 'tools/verticalize_existing_epub.py'
+      - '.github/workflows/vertical-epub-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Download original Iliad release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          curl -fL --retry 3 --silent --show-error -o build/source.epub "https://github.com/CassiaLin/Troy-Epic-Series/releases/download/01-iliad-v2.0.0/TroyEpic_01_Iliad_zh-TW_v2.0.0.epub"
+          echo "453c53c4b2d02f9346a7c1c307933cbad06a473346be674e4c61b5e953bea5b0  build/source.epub" | sha256sum -c -
+      - name: Make separate vertical proof
+        run: python tools/verticalize_existing_epub.py build/source.epub build/TroyEpic_01_Iliad_zh-TW_v2.0.0_vertical-proof.epub
+      - name: Download EPUBCheck 5.3.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --silent --show-error -o build/epubcheck.zip "https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip"
+          unzip -q build/epubcheck.zip -d build/checker
+      - name: EPUBCheck (errors or warnings fail)
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar build/checker/epubcheck-5.3.0/epubcheck.jar build/TroyEpic_01_Iliad_zh-TW_v2.0.0_vertical-proof.epub 2>&1 | tee build/epubcheck-report.txt
+          if grep -Eiq '(warning|error|fatal): [1-9]|(WARN|ERROR|FATAL)\(' build/epubcheck-report.txt; then
+            echo "EPUBCheck reported issues"
+            exit 1
+          fi
+      - name: Upload testing files (not a Release)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TES-Iliad-vertical-proof
+          path: |
+            build/TroyEpic_01_Iliad_zh-TW_v2.0.0_vertical-proof.epub
+            build/epubcheck-report.txt
+          if-no-files-found: warn
+          retention-days: 30
