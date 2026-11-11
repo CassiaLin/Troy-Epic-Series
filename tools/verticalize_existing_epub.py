@@ -46,8 +46,8 @@ def sha(data):
 
 def transform(source, dest):
     readable = re.compile(r"OEBPS/(?:r|z)[0-9]{2}\.xhtml$")
-    front = re.compile(r"OEBPS/f[0-9]{2}\\.xhtml$")
-    appendix = re.compile(r"OEBPS/a[a-z]\\.xhtml$")
+    front = re.compile(r"OEBPS/f[0-9]{2}\.xhtml$")
+    appendix = re.compile(r"OEBPS/a[a-z]\.xhtml$")
     vertical_named = {"OEBPS/titlepage.xhtml", "OEBPS/nav.xhtml", "OEBPS/p1.xhtml", "OEBPS/p3.xhtml"}
     def vertical(name):
         return bool(readable.fullmatch(name) or front.fullmatch(name) or appendix.fullmatch(name) or name in vertical_named)
@@ -113,8 +113,14 @@ def transform(source, dest):
         for name in original.namelist():
             if bilingual.fullmatch(name) and sha(original.read(name)) != sha(converted.read(name)):
                 raise ValueError("Bilingual chapter changed: " + name)
-    if count == 0 or bilingual_count == 0 or not all(n in modified_sections for n in vertical_named if n in names):
-        raise ValueError("Missing readable/bilingual sections")
+    expected_front = sorted(n for n in names if front.fullmatch(n))
+    expected_appendix = sorted(n for n in names if appendix.fullmatch(n))
+    required = set(expected_front + expected_appendix + [n for n in vertical_named if n in names])
+    if not expected_front or not expected_appendix:
+        raise ValueError("Source EPUB lacks front matter or appendices")
+    if count == 0 or bilingual_count == 0 or not required.issubset(set(modified_sections)):
+        raise ValueError("Missing vertical sections: " + str(sorted(required - set(modified_sections))))
+    print(f"Front matter vertical: {len(expected_front)}; appendices vertical: {len(expected_appendix)}")
     print(f"Vertical XHTML files: {count}; sections: {modified_sections}")
     print(f"Bilingual chapters preserved byte-for-byte: {bilingual_count}")
     print(f"Output: {dest}")
