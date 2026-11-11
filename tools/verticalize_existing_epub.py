@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Make an EPUB proof: readable chapters vertical, all other files unchanged."""
+"""Mixed layout: Chinese front matter, chapters, TOC and appendices vertical; bilingual unchanged."""
 import argparse
 import hashlib
 import pathlib
@@ -8,7 +8,7 @@ import uuid
 import zipfile
 
 STYLE = """
-/* Only readable chapters are vertical; bilingual and front matter stay horizontal. */
+/* Chinese reading portions vertical; bilingual and cover stay horizontal. */
 html.tes-vertical-readable, body.tes-vertical-readable {
   writing-mode: vertical-rl;
   -webkit-writing-mode: vertical-rl;
@@ -30,7 +30,13 @@ body.tes-vertical-readable .footnotes {
   margin-top: 0;
   margin-right: 1em;
 }
-body.tes-vertical-readable table { width: auto; }
+/* Wide tables remain horizontal even inside vertical Chinese appendices. */
+body.tes-vertical-readable table { writing-mode: horizontal-tb; width: auto; max-width: 100%; }
+body.tes-vertical-readable th, body.tes-vertical-readable td { writing-mode: horizontal-tb; }
+body.tes-vertical-readable nav ol { padding-left: 0; padding-right: 1.2em; }
+body.tes-vertical-readable .titlepage { margin-top: 0; margin-right: 18%; }
+body.tes-vertical-readable .part { margin-top: 0; margin-right: 25%; }
+body.tes-vertical-readable .meta { border-left: 0; border-right: 2px solid; padding-left: 0; padding-right: 0.8em; }
 body.tes-vertical-readable img { max-width: 100%; max-height: 90%; }
 html:not(.tes-vertical-readable), body:not(.tes-vertical-readable) { writing-mode: horizontal-tb; }
 """
@@ -40,9 +46,15 @@ def sha(data):
 
 def transform(source, dest):
     readable = re.compile(r"OEBPS/(?:r|z)[0-9]{2}\.xhtml$")
+    front = re.compile(r"OEBPS/f[0-9]{2}\\.xhtml$")
+    appendix = re.compile(r"OEBPS/a[a-z]\\.xhtml$")
+    vertical_named = {"OEBPS/titlepage.xhtml", "OEBPS/nav.xhtml", "OEBPS/p1.xhtml", "OEBPS/p3.xhtml"}
+    def vertical(name):
+        return bool(readable.fullmatch(name) or front.fullmatch(name) or appendix.fullmatch(name) or name in vertical_named)
     bilingual = re.compile(r"OEBPS/(?:c|e)[0-9]{2}\.xhtml$")
     count = 0
     bilingual_count = 0
+    modified_sections = []
     with zipfile.ZipFile(source) as inp, zipfile.ZipFile(dest, "w") as out:
         names = inp.namelist()
         if not names or names[0] != "mimetype":
@@ -53,7 +65,7 @@ def transform(source, dest):
             raise ValueError("No bilingual XHTML found; refusing to generate")
         for item in inp.infolist():
             data = inp.read(item.filename)
-            if readable.fullmatch(item.filename):
+            if vertical(item.filename):
                 x = data.decode("utf-8")
                 if '<body' not in x or 'class="tes-vertical-readable"' in x:
                     raise ValueError("Unexpected readable XHTML: " + item.filename)
@@ -65,11 +77,12 @@ def transform(source, dest):
                     raise ValueError("Missing XHTML root")
                 data = updated.encode("utf-8")
                 count += 1
+                modified_sections.append(item.filename)
             elif item.filename == "OEBPS/content.opf":
                 x = data.decode("utf-8")
-                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v2/01"))
+                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v4/01"))
                 x, id_count = re.subn(r"(<dc:identifier id=\"pub-id\">)[^<]+(</dc:identifier>)", lambda m: m.group(1) + replacement_id + m.group(2), x, count=1)
-                x, title_count = re.subn(r"(<dc:title id=\"t1\">)([^<]+)(</dc:title>)", lambda m: m.group(1) + m.group(2) + "（直排測試二版）" + m.group(3), x, count=1)
+                x, title_count = re.subn(r"(<dc:title id=\"t1\">)([^<]+)(</dc:title>)", lambda m: m.group(1) + m.group(2) + "（直排測試四版）" + m.group(3), x, count=1)
                 if id_count != 1 or title_count != 1:
                     raise ValueError("Unexpected OPF metadata")
                 x, spine_count = re.subn(r"<spine(?=[ >])([^>]*)>", lambda m: '<spine' + re.sub(r'\\s+page-progression-direction="[^"]*"', '', m.group(1)) + ' page-progression-direction="rtl">', x, count=1)
@@ -78,7 +91,7 @@ def transform(source, dest):
                 data = x.encode("utf-8")
             elif item.filename == "OEBPS/toc.ncx":
                 x = data.decode("utf-8")
-                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v2/01"))
+                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v4/01"))
                 x, ncx_count = re.subn(r'(<meta name="dtb:uid" content=")[^"]+("/>)', lambda m: m.group(1) + replacement_id + m.group(2), x, count=1)
                 if ncx_count != 1:
                     raise ValueError("Unexpected NCX identifier")
@@ -93,16 +106,16 @@ def transform(source, dest):
             raise ValueError("ZIP file list changed")
         for name in original.namelist():
             before, after = original.read(name), converted.read(name)
-            if readable.fullmatch(name) or name in ("OEBPS/css/book.css", "OEBPS/content.opf", "OEBPS/toc.ncx"):
+            if vertical(name) or name in ("OEBPS/css/book.css", "OEBPS/content.opf", "OEBPS/toc.ncx"):
                 continue
             if before != after:
                 raise ValueError("Unexpected change: " + name)
         for name in original.namelist():
             if bilingual.fullmatch(name) and sha(original.read(name)) != sha(converted.read(name)):
                 raise ValueError("Bilingual chapter changed: " + name)
-    if count == 0 or bilingual_count == 0:
+    if count == 0 or bilingual_count == 0 or not all(n in modified_sections for n in vertical_named if n in names):
         raise ValueError("Missing readable/bilingual sections")
-    print(f"Readable chapters set to vertical: {count}")
+    print(f"Vertical XHTML files: {count}; sections: {modified_sections}")
     print(f"Bilingual chapters preserved byte-for-byte: {bilingual_count}")
     print(f"Output: {dest}")
 
