@@ -33,6 +33,12 @@ body.tes-vertical-readable .footnotes {
 /* Wide tables remain horizontal even inside vertical Chinese appendices. */
 body.tes-vertical-readable table { writing-mode: horizontal-tb; width: auto; max-width: 100%; }
 body.tes-vertical-readable th, body.tes-vertical-readable td { writing-mode: horizontal-tb; }
+body.tes-vertical-readable .tes-table-records { margin: 1.1em 0; }
+body.tes-vertical-readable .tes-table-labels { font-size: 0.85em; opacity: 0.85; margin: 0 0 0.7em; }
+body.tes-vertical-readable .tes-table-record { margin: 0 0 1.25em; padding: 0 0.6em; border-right: 1px solid; break-inside: avoid; }
+body.tes-vertical-readable .tes-table-record p { text-indent: 0; margin: 0 0 0.4em; }
+body.tes-vertical-readable .tes-record-title { font-weight: bold; }
+body.tes-vertical-readable .tes-record-detail { font-size: 0.95em; }
 body.tes-vertical-readable nav ol { padding-left: 0; padding-right: 1.2em; }
 body.tes-vertical-readable .titlepage { margin-top: 0; margin-right: 18%; }
 body.tes-vertical-readable .part { margin-top: 0; margin-right: 25%; }
@@ -40,6 +46,43 @@ body.tes-vertical-readable .meta { border-left: 0; border-right: 2px solid; padd
 body.tes-vertical-readable img { max-width: 100%; max-height: 90%; }
 html:not(.tes-vertical-readable), body:not(.tes-vertical-readable) { writing-mode: horizontal-tb; }
 """
+
+
+def verticalize_tables(x):
+    """Present horizontal Markdown tables as legible vertical records, preserving each cell."""
+    count = 0
+
+    def convert(match):
+        nonlocal count
+        rows = re.findall(r"<tr>(.*?)</tr>", match.group(0), flags=re.S)
+        parsed = []
+        for row in rows:
+            cells = re.findall(r"<(?:td|th)>(.*?)</(?:td|th)>", row, flags=re.S)
+            if not cells:
+                raise ValueError("Empty or unsupported table row")
+            parsed.append(cells)
+        if not parsed:
+            raise ValueError("Unrecognized XHTML table")
+        is_header = "<th>" in rows[0]
+        headers = parsed.pop(0) if is_header else []
+        markup = ['<div class="tes-table-records">']
+        if headers:
+            markup.append('<div class="tes-table-labels"><p>' + '／'.join(headers) + '</p></div>')
+        for cells in parsed:
+            markup.append('<div class="tes-table-record">')
+            markup.append('<p class="tes-record-title">' + cells[0] + '</p>')
+            for i, cell in enumerate(cells[1:], start=1):
+                label = ('<strong>' + headers[i] + '：</strong>') if i < len(headers) and len(headers) > 2 else ''
+                markup.append('<p class="tes-record-detail">' + label + cell + '</p>')
+            markup.append('</div>')
+        markup.append('</div>')
+        count += 1
+        return ''.join(markup)
+
+    converted = re.sub(r"<table>.*?</table>", convert, x, flags=re.S)
+    if '<table' in converted:
+        raise ValueError("Unhandled table in vertical XHTML")
+    return converted, count
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -55,6 +98,7 @@ def transform(source, dest):
     count = 0
     bilingual_count = 0
     modified_sections = []
+    table_count = 0
     with zipfile.ZipFile(source) as inp, zipfile.ZipFile(dest, "w") as out:
         names = inp.namelist()
         if not names or names[0] != "mimetype":
@@ -75,14 +119,16 @@ def transform(source, dest):
                 updated, html_count = re.subn(r'<html(?=[ >])', '<html class="tes-vertical-readable"', updated, count=1)
                 if html_count != 1:
                     raise ValueError("Missing XHTML root")
+                updated, converted_tables = verticalize_tables(updated)
+                table_count += converted_tables
                 data = updated.encode("utf-8")
                 count += 1
                 modified_sections.append(item.filename)
             elif item.filename == "OEBPS/content.opf":
                 x = data.decode("utf-8")
-                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v4/01"))
+                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v6/01"))
                 x, id_count = re.subn(r"(<dc:identifier id=\"pub-id\">)[^<]+(</dc:identifier>)", lambda m: m.group(1) + replacement_id + m.group(2), x, count=1)
-                x, title_count = re.subn(r"(<dc:title id=\"t1\">)([^<]+)(</dc:title>)", lambda m: m.group(1) + m.group(2) + "（直排測試四版）" + m.group(3), x, count=1)
+                x, title_count = re.subn(r"(<dc:title id=\"t1\">)([^<]+)(</dc:title>)", lambda m: m.group(1) + m.group(2) + "（直排測試六版）" + m.group(3), x, count=1)
                 if id_count != 1 or title_count != 1:
                     raise ValueError("Unexpected OPF metadata")
                 x, spine_count = re.subn(r"<spine(?=[ >])([^>]*)>", lambda m: '<spine' + re.sub(r'\\s+page-progression-direction="[^"]*"', '', m.group(1)) + ' page-progression-direction="rtl">', x, count=1)
@@ -91,7 +137,7 @@ def transform(source, dest):
                 data = x.encode("utf-8")
             elif item.filename == "OEBPS/toc.ncx":
                 x = data.decode("utf-8")
-                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v4/01"))
+                replacement_id = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/CassiaLin/Troy-Epic-Series/proof/vertical-v6/01"))
                 x, ncx_count = re.subn(r'(<meta name="dtb:uid" content=")[^"]+("/>)', lambda m: m.group(1) + replacement_id + m.group(2), x, count=1)
                 if ncx_count != 1:
                     raise ValueError("Unexpected NCX identifier")
@@ -120,6 +166,9 @@ def transform(source, dest):
         raise ValueError("Source EPUB lacks front matter or appendices")
     if count == 0 or bilingual_count == 0 or not required.issubset(set(modified_sections)):
         raise ValueError("Missing vertical sections: " + str(sorted(required - set(modified_sections))))
+    if table_count == 0:
+        raise ValueError("Expected at least one vertical-table conversion")
+    print(f"Converted tables to vertical records: {table_count}")
     print(f"Front matter vertical: {len(expected_front)}; appendices vertical: {len(expected_appendix)}")
     print(f"Vertical XHTML files: {count}; sections: {modified_sections}")
     print(f"Bilingual chapters preserved byte-for-byte: {bilingual_count}")
