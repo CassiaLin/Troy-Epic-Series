@@ -255,6 +255,14 @@ figcaption { font-size: 0.88em; margin-top: 0.4em; }
 .cover { margin: 0; padding: 0; text-align: center; }
 .cover img { max-width: 100%; max-height: 100vh; }
 nav ol { list-style: none; padding-left: 1.2em; }
+/* Mixed-layout edition: scope vertical Chinese to readable chapters only. */
+body.vertical-readable { writing-mode: vertical-rl; -epub-writing-mode: vertical-rl; text-orientation: mixed; -webkit-text-orientation: mixed; line-height: 1.85; margin: 4% 0; }
+body.vertical-readable h1, body.vertical-readable h2, body.vertical-readable h3 { text-align: start; }
+body.vertical-readable p { text-indent: 2em; margin: 0 0 0 0.8em; }
+body.vertical-readable .xlink, body.vertical-readable .fnlab { text-indent: 0; }
+body.vertical-readable .footnotes { border-top: 0; border-right: 1px solid; padding-top: 0; padding-right: 0.5em; margin-top: 0; margin-right: 1em; }
+body.vertical-readable table { width: auto; }
+body.vertical-readable img { max-height: 90%; max-width: 100%; }
 '''
 
 
@@ -285,7 +293,7 @@ class Book:
 
     def write(self, out):
         c = self.c
-        uid = uuid.uuid5(uuid.NAMESPACE_URL, f'https://github.com/CassiaLin/Troy-Epic-Series/{VER}/{self.v}')
+        uid = uuid.uuid5(uuid.NAMESPACE_URL, (f'https://github.com/CassiaLin/Troy-Epic-Series/{VER}/{self.v}/vertical-readable' if VERTICAL_READABLE else f'https://github.com/CassiaLin/Troy-Epic-Series/{VER}/{self.v}'))
         man, spine = [], []
         man.append('<item id="css" href="css/book.css" media-type="text/css"/>')
         man.append('<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>')
@@ -301,7 +309,7 @@ class Book:
                 spine.append('<itemref idref="nav"/>')
         coll = '' if self.v == '90' else ''
         meta = f'''<dc:identifier id="pub-id">urn:uuid:{uid}</dc:identifier>
-<dc:title id="t1">{html.escape(c['title'])}</dc:title>
+<dc:title id="t1">{html.escape(c['title'] + ('（好讀版直排）' if VERTICAL_READABLE else ''))}</dc:title>
 <meta refines="#t1" property="title-type">main</meta>
 <dc:creator id="cr">{html.escape(c['author'])}</dc:creator>
 <meta refines="#cr" property="role" scheme="marc:relators">aut</meta>
@@ -557,6 +565,7 @@ def render_bilingual(book, vol, ctx_name, unit_no, heading, items):
 
 
 # ---------------------------------------------------------------- readable / front (01–05)
+VERTICAL_READABLE = False  # Optional mixed-layout edition; do not alter the default EPUB.
 LAYOUT = {'mode': 'work'}   # 'work' = editing-time layout; 'repo' = repository layout (use --repo)
 REPO_DIR = {'01': '01_伊里亞德', '02': '02_荷馬續篇', '03': '03_奧德賽', '04': '04_埃涅阿斯紀', '05': '05_史詩殘篇集', '90': '90_奧德賽的女作者'}
 
@@ -636,7 +645,7 @@ def build_series(vol):
         fn_b = [x for x in blks if x.startswith('<aside')]
         xl = f'<p class="xlink"><a href="c{k:02d}.xhtml">原文逐行對照　{"卷" + cnum(k) if vol != "05" else "第" + cnum(k) + "部"}</a></p>'
         body = body_b[0] + xl + '\n'.join(body_b[1:]) + (('<section class="footnotes" epub:type="footnotes">' + ''.join(fn_b) + '</section>') if fn_b else '')
-        b.add(f'r{k:02d}.xhtml', h1, page(h1, body, epub_type='chapter'), toc=2, sig_src='\n'.join(L2))
+        b.add(f'r{k:02d}.xhtml', h1, page(h1, body, cls='vertical-readable' if VERTICAL_READABLE else None, epub_type='chapter'), toc=2, sig_src='\n'.join(L2))
     # part 2
     p2note = ('<p>本部授權：CC BY-SA 4.0。所收' + ('拉丁文' if vol == '04' else '希臘文') + '取自 Perseus Digital Library（CC BY-SA 4.0）。</p>') if vol != '05' else '<p>希臘文殘篇依公版校訂本，中文逐條對照。</p>'
     b.add('p2.xhtml', '第二部　原文逐行對照', page('第二部　原文逐行對照', f'<div class="part"><h1>第二部　原文逐行對照</h1>{p2note}</div>', epub_type='part'), toc=1)
@@ -738,7 +747,7 @@ def build_90():
         u = first_u(s)
         xl = f'<p class="xlink"><a href="{u2e[u]}#E-{u}">英文原文</a></p>' if u in u2e else ''
         x = blks[0] + xl + '\n'.join(blks[1:])
-        b.add(zfile[i], title, page(title, x, epub_type='chapter'), toc=2, sig_src=s if L[0].startswith('## ') else title + s)
+        b.add(zfile[i], title, page(title, x, cls='vertical-readable' if VERTICAL_READABLE else None, epub_type='chapter'), toc=2, sig_src=s if L[0].startswith('## ') else title + s)
     b.add('p2.xhtml', '第二部　英文原文', page('第二部　英文原文', '<div class="part"><h1>第二部　英文原文</h1><p>Samuel Butler, <i>The Authoress of the Odyssey</i>（1922 年紐約 E．P．達頓公司版，公版）</p></div>', epub_type='part'), toc=1)
     for i, s in enumerate(ec):
         L = s.split('\n')
@@ -757,8 +766,11 @@ def build_90():
 
 
 def main():
-    global OUT, TAG
+    global OUT, TAG, VERTICAL_READABLE
     args = sys.argv[1:]
+    if '--vertical-readable' in args:
+        args.remove('--vertical-readable')
+        VERTICAL_READABLE = True
     if '--repo' in args:   # run from the repository root: reads <冊>/好讀版.md, 雙語校對版.md, covers/; writes build/
         args.remove('--repo')
         LAYOUT['mode'] = 'repo'
@@ -772,7 +784,7 @@ def main():
     cov = {}
     for v in vols:
         b, st = build_90() if v == '90' else build_series(v)
-        fn = f'{OUT}/TroyEpic_{v}_{VOLS[v]["name"]}_zh-TW_{TAG}.epub'
+        fn = f'{OUT}/TroyEpic_{v}_{VOLS[v]["name"]}_zh-TW_{TAG}{"_vertical" if VERTICAL_READABLE else ""}.epub'
         b.write(fn)
         bad = [x for x in b.coverage if not x[3]]
         cov[v] = {'file': fn, 'size': os.path.getsize(fn), 'xhtml': len(b.files), 'coverage_checked': len(b.coverage),
