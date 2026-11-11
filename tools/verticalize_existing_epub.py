@@ -32,6 +32,7 @@ body.tes-vertical-readable .footnotes {
 }
 body.tes-vertical-readable table { width: auto; }
 body.tes-vertical-readable img { max-width: 100%; max-height: 90%; }
+html:not(.tes-vertical-readable), body:not(.tes-vertical-readable) { writing-mode: horizontal-tb; }
 """
 
 def sha(data):
@@ -71,6 +72,9 @@ def transform(source, dest):
                 x, title_count = re.subn(r"(<dc:title id=\"t1\">)([^<]+)(</dc:title>)", lambda m: m.group(1) + m.group(2) + "（直排測試二版）" + m.group(3), x, count=1)
                 if id_count != 1 or title_count != 1:
                     raise ValueError("Unexpected OPF metadata")
+                x, spine_count = re.subn(r"<spine(?=[ >])([^>]*)>", lambda m: '<spine' + re.sub(r'\\s+page-progression-direction="[^"]*"', '', m.group(1)) + ' page-progression-direction="rtl">', x, count=1)
+                if spine_count != 1:
+                    raise ValueError("Missing OPF spine")
                 data = x.encode("utf-8")
             elif item.filename == "OEBPS/toc.ncx":
                 x = data.decode("utf-8")
